@@ -1,18 +1,21 @@
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
+from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import ElementClickInterceptedException
 from selenium.webdriver.chrome.service import Service
-from bs4 import BeautifulSoup
+from selenium.common.exceptions import NoSuchWindowException
 from selenium.webdriver.chrome.options import Options  # 用来禁用GPU加速，避免浏览器崩溃
+from bs4 import BeautifulSoup
 import time
 import os
 import csv
 import re
 import sys
+import json
 
 def close_mini_player(driver):
     try:
@@ -21,7 +24,7 @@ def close_mini_player(driver):
         )
         close_button.click()
     except Exception as e:
-        print(f"【这不影响程序正常运行，可以忽略】未找到关闭按钮或无法关闭悬浮小窗，可能悬浮小窗已经被关闭: {e}")
+        print(f"未找到关闭按钮或无法关闭悬浮小窗: {e}")
 
 def restart_browser():
     global driver
@@ -29,7 +32,50 @@ def restart_browser():
     driver = webdriver.Chrome(service=Service(executable_path=ChromeDriverManager().install()))
     driver.get('https://space.bilibili.com/')
     input("请登录，登录成功跳转后，按回车键继续...")
+    print("程序继续运行")
 
+def wait_and_click_element(driver, locator, timeout=10, max_attempts=10, delay_between_attempts=2):
+    attempts = 0
+    while attempts < max_attempts:
+        try:
+            element = WebDriverWait(driver, timeout).until(EC.element_to_be_clickable(locator))
+            element.click()
+            return
+        except StaleElementReferenceException:
+            attempts += 1
+            time.sleep(delay_between_attempts)
+    print(f"Failed to click element after {max_attempts} attempts due to StaleElementReferenceException.")
+    return
+
+def click_view_more_button():
+    view_more_buttons = driver.find_elements(By.XPATH, "//span[@class='view-more-btn']")
+    if len(view_more_buttons) > 0:
+        wait_and_click_element(driver, (By.XPATH, "//span[@class='view-more-btn']"))
+        driver.execute_script("arguments[0].scrollIntoView();", view_more_buttons[0])
+        driver.execute_script("window.scrollBy(0, -100);")
+        try:
+            view_more_buttons[0].click()
+            time.sleep(5)
+        except ElementClickInterceptedException:
+            print("查看全部 button is not clickable, skipping...")
+
+def navigate_to_sub_comment_page(target_page):
+    current_page = 1
+    while current_page < target_page:
+        next_buttons = driver.find_elements(By.CSS_SELECTOR, ".pagination-btn")
+        for button in next_buttons:
+            if "下一页" in button.text:
+                button_xpath = f"//span[contains(text(), '下一页') and @class='{button.get_attribute('class')}']"
+                WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, button_xpath)))
+                driver.execute_script("arguments[0].scrollIntoView();", button)
+                driver.execute_script("window.scrollBy(0, -100);")
+                try:
+                    button.click()
+                    time.sleep(10)
+                    current_page += 1
+                    break
+                except ElementClickInterceptedException:
+                    print("下一页按钮 is not clickable, skipping...")
 
 def scroll_to_bottom(driver):
     mini_flag = True
@@ -94,30 +140,57 @@ def write_to_csv(video_id, index, level, parent_nickname, parent_user_id, nickna
             '点赞数': likes
         })
 
-def extract_sub_reply(i, video_id, parent_nickname, parent_user_id, sub_all_reply_items):
+def extract_sub_reply(i, video_id, parent_nickname, parent_user_id, sub_all_reply_items, progress):
     if i >= len(sub_all_reply_items):
         return
 
-    sub_soup = BeautifulSoup(driver.page_source, "html.parser")
-    sub_all_reply_items = sub_soup.find_all("div", class_="reply-item")
+    while True:
+        try:
+            # 如果需要，点击 "查看全部" 按钮
+            click_view_more_button()
+            # 跳转到指定的二级评论页
+            navigate_to_sub_comment_page(progress['sub_page'])
 
-    # 提取二级评论数据
-    sub_reply_list = sub_all_reply_items[i].find("div", class_="sub-reply-list")
-    if sub_reply_list:
-        for sub_reply_item in sub_reply_list.find_all("div", class_="sub-reply-item"):
-            sub_nickname = sub_reply_item.find("div", class_="sub-user-name").text
-            sub_user_id = sub_reply_item.find("div", class_="sub-reply-avatar")["data-user-id"]
-            sub_content = sub_reply_item.find("span", class_="reply-content").text
-            sub_time = sub_reply_item.find("span", class_="sub-reply-time").text
-            try:
-                sub_likes = sub_reply_item.find("span", class_="sub-reply-like").find("span").text
-            except AttributeError:
-                sub_likes = 0
+            # 重新获取网页源代码和二级评论列表
+            sub_soup = BeautifulSoup(driver.page_source, "html.parser")
+            sub_all_reply_items = sub_soup.find_all("div", class_="reply-item")
 
-            write_to_csv(video_id, index=i, level='二级评论', parent_nickname=parent_nickname,
-                         parent_user_id=parent_user_id,
-                         nickname=sub_nickname, user_id=sub_user_id, content=sub_content, time=sub_time,
-                         likes=sub_likes)
+            # 提取二级评论数据
+            sub_reply_list = sub_all_reply_items[i].find("div", class_="sub-reply-list")
+            if sub_reply_list:
+                for sub_reply_item in sub_reply_list.find_all("div", class_="sub-reply-item"):
+                    sub_nickname = sub_reply_item.find("div", class_="sub-user-name").text
+                    sub_user_id = sub_reply_item.find("div", class_="sub-reply-avatar")["data-user-id"]
+                    sub_content = sub_reply_item.find("span", class_="reply-content").text
+                    sub_time = sub_reply_item.find("span", class_="sub-reply-time").text
+                    try:
+                        sub_likes = sub_reply_item.find("span", class_="sub-reply-like").find("span").text
+                    except AttributeError:
+                        sub_likes = 0
+
+                    write_to_csv(video_id, index=i, level='二级评论', parent_nickname=parent_nickname,
+                                 parent_user_id=parent_user_id,
+                                 nickname=sub_nickname, user_id=sub_user_id, content=sub_content, time=sub_time,
+                                 likes=sub_likes)
+
+            # 翻到下一页二级评论
+            next_page_button = find_next_page_button()
+            if next_page_button:
+                next_page_button.click()
+                time.sleep(5)
+                progress['sub_page'] += 1
+            else:
+                break
+
+        except (NoSuchElementException, ElementClickInterceptedException):
+            driver.refresh()
+            time.sleep(5)
+            scroll_to_bottom(driver)
+            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".reply-item")))
+            click_view_more_button()
+
+    progress['sub_page'] = 1
+
 
 chrome_options = Options()
 # 禁用视频、音频、图片加载
@@ -130,10 +203,16 @@ driver = webdriver.Chrome(service=Service(executable_path=ChromeDriverManager().
 driver.get('https://space.bilibili.com/')
 input("请登录，登录成功跳转后，按回车键继续...")
 
+if os.path.exists("progress.txt"):
+    with open("progress.txt", "r") as f:
+        progress = json.load(f)
+else:
+    progress = {"video_count": 0, "first_comment_index": 0, "sub_comment_page": 0}
+
 with open('video_list.txt', 'r') as f:
     video_urls = f.read().splitlines()
 
-video_count = 0
+video_count = progress["video_count"]
 
 for url in video_urls:
     video_count = video_count + 1
@@ -155,6 +234,7 @@ for url in video_urls:
     soup = BeautifulSoup(driver.page_source, "html.parser")
     all_reply_items = soup.find_all("div", class_="reply-item")
 
+    i = progress["first_comment_index"]
     for i, reply_item in enumerate(all_reply_items):
         first_level_nickname_element = reply_item.find("div", class_="user-name")
         first_level_nickname = first_level_nickname_element.text if first_level_nickname_element is not None else ''
@@ -192,7 +272,7 @@ for url in video_urls:
             except ElementClickInterceptedException:
                 print("查看全部 button is not clickable, skipping...")
 
-        extract_sub_reply(i, video_id, first_level_nickname, first_level_user_id, all_reply_items)
+        extract_sub_reply(i, video_id, first_level_nickname, first_level_user_id, all_reply_items, progress)
 
         if clicked_view_more:
             while True:
@@ -208,8 +288,8 @@ for url in video_urls:
                         try:
                             button.click()
                             time.sleep(10)
-                            extract_sub_reply(i, video_id, first_level_nickname, first_level_user_id,
-                                              all_reply_items)
+                            extract_sub_reply(i, video_id, first_level_nickname, first_level_user_id, all_reply_items,
+                                              progress)
                             found_next_button = True
                             break
                         except ElementClickInterceptedException:
@@ -220,6 +300,19 @@ for url in video_urls:
 
         print(f'第{video_count}个视频{video_id}-第{i+1}个一级评论已完成爬取')
         i = i + 1
+
+        progress["first_comment_index"] = i + 1
+        progress["sub_comment_page"] = 0
+
+        with open("progress.txt", "w") as f:
+            json.dump(progress, f)
+
+    video_count += 1
+    progress["video_count"] = video_count
+    progress["first_comment_index"] = 0
+
+    with open("progress.txt", "w") as f:
+        json.dump(progress, f)
 
     time.sleep(3)
 
