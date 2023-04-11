@@ -1,4 +1,4 @@
-# Bilibili Comment Scraper
+# Bilibili视频评论爬虫
 
 Bilibili Comment Scraper 是一个 Python 脚本，用于批量爬取 Bilibili 多个视频的评论。此脚本使用 Selenium 和 BeautifulSoup 解析网页并提取评论数据。评论数据将按照视频 ID 保存到 CSV 文件中。
 #### 好用的话记得给个star
