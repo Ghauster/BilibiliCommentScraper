@@ -5,6 +5,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import WebDriverException
 from selenium.common.exceptions import ElementClickInterceptedException
 from selenium.webdriver.chrome.service import Service
 from selenium.common.exceptions import NoSuchWindowException
@@ -17,6 +19,44 @@ import re
 import sys
 import json
 
+def save_progress(progress):
+    with open("progress.txt", "w", encoding='utf-8') as f:
+        json.dump(progress, f)
+
+def check_page_status(driver):
+    try:
+        driver.title
+        return True
+    except Exception as e:
+        print(f"页面崩溃，尝试重新加载: {e}")
+        driver.refresh()
+        time.sleep(5)
+        return False
+
+def click_view_more(driver, view_more_button):
+    success = False
+    while not success:
+        try:
+            view_more_button.click()
+            time.sleep(2)
+            success = True
+        except Exception as e:
+            print(f"点击查看全部按钮时发生错误: {e}")
+            if not check_page_status(driver):
+                continue
+
+def click_next_page(driver, next_page_button):
+    success = False
+    while not success:
+        try:
+            next_page_button.click()
+            time.sleep(2)
+            success = True
+        except Exception as e:
+            print(f"点击下一页按钮时发生错误: {e}")
+            if not check_page_status(driver):
+                continue
+
 def close_mini_player(driver):
     try:
         close_button = WebDriverWait(driver, 10).until(
@@ -26,14 +66,19 @@ def close_mini_player(driver):
     except Exception as e:
         print(f"未找到关闭按钮或无法关闭悬浮小窗: {e}")
 
-def restart_browser():
+def restart_browser(progress):
     global driver
     driver.quit()
     driver = webdriver.Chrome(service=Service(executable_path=ChromeDriverManager().install()))
     driver.get('https://space.bilibili.com/')
     input("请登录，登录成功跳转后，按回车键继续...")
-    print("程序继续运行")
+    print("程序正在继续运行")
 
+    # 加载已保存的进度信息
+    with open("progress.txt", "r", encoding='utf-8') as f:
+        progress = json.load(f)
+
+# wait_and_click_element()暂且没用上
 def wait_and_click_element(driver, locator, timeout=10, max_attempts=10, delay_between_attempts=2):
     attempts = 0
     while attempts < max_attempts:
@@ -47,21 +92,18 @@ def wait_and_click_element(driver, locator, timeout=10, max_attempts=10, delay_b
     print(f"Failed to click element after {max_attempts} attempts due to StaleElementReferenceException.")
     return
 
-def click_view_more_button():
-    view_more_buttons = driver.find_elements(By.XPATH, "//span[@class='view-more-btn']")
-    if len(view_more_buttons) > 0:
-        wait_and_click_element(driver, (By.XPATH, "//span[@class='view-more-btn']"))
-        driver.execute_script("arguments[0].scrollIntoView();", view_more_buttons[0])
-        driver.execute_script("window.scrollBy(0, -100);")
-        try:
-            view_more_buttons[0].click()
-            time.sleep(5)
-        except ElementClickInterceptedException:
-            print("查看全部 button is not clickable, skipping...")
+def check_next_page_button():
+    next_buttons = driver.find_elements(By.CSS_SELECTOR, ".pagination-btn")
+    for button in next_buttons:
+        if "下一页" in button.text:
+            return True
+    return False
 
 def navigate_to_sub_comment_page(target_page):
     current_page = 1
-    while current_page < target_page:
+    while current_page <= target_page:
+        if not check_next_page_button():
+            break  # 没有下一页按钮时跳出循环
         next_buttons = driver.find_elements(By.CSS_SELECTOR, ".pagination-btn")
         for button in next_buttons:
             if "下一页" in button.text:
@@ -70,7 +112,7 @@ def navigate_to_sub_comment_page(target_page):
                 driver.execute_script("arguments[0].scrollIntoView();", button)
                 driver.execute_script("window.scrollBy(0, -100);")
                 try:
-                    button.click()
+                    click_next_page(driver, button)
                     time.sleep(10)
                     current_page += 1
                     break
@@ -90,6 +132,17 @@ def scroll_to_bottom(driver):
         sys.exit()  # 退出程序，因为需要从头开始运行
 
     while True:
+        # 检查页面是否崩溃，尝试获取页面标题，如果发生异常，则认为页面崩溃
+        try:
+            driver.title
+        except Exception as e:
+            print(f"页面崩溃，尝试重新加载: {e}")
+            driver.refresh()
+            time.sleep(5)
+            # 恢复滚动位置
+            driver.execute_script(f"window.scrollTo(0, {last_height});")
+            time.sleep(SCROLL_PAUSE_TIME)
+
         try:
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
             if (mini_flag):
@@ -140,57 +193,41 @@ def write_to_csv(video_id, index, level, parent_nickname, parent_user_id, nickna
             '点赞数': likes
         })
 
-def extract_sub_reply(i, video_id, parent_nickname, parent_user_id, sub_all_reply_items, progress):
+def extract_sub_reply(video_id, progress, first_level_nickname, first_level_user_id):
+
+    i = progress["first_comment_index"]
+
+    sub_soup = BeautifulSoup(driver.page_source, "html.parser")
+    sub_all_reply_items = sub_soup.find_all("div", class_="reply-item")
+
     if i >= len(sub_all_reply_items):
+        print(str(f'翻页爬取二级评论时获得的一级评论数与实际一级评论数不符，视频{video_id}异常'))
         return
 
-    while True:
-        try:
-            # 如果需要，点击 "查看全部" 按钮
-            click_view_more_button()
-            # 跳转到指定的二级评论页
-            navigate_to_sub_comment_page(progress['sub_page'])
+    # 提取二级评论数据
+    sub_reply_list = sub_all_reply_items[i].find("div", class_="sub-reply-list")
+    if sub_reply_list:
+        for sub_reply_item in sub_reply_list.find_all("div", class_="sub-reply-item"):
+            try:
+                sub_reply_nickname = sub_reply_item.find("div", class_="sub-user-name").text
+                sub_reply_user_id = sub_reply_item.find("div", class_="sub-reply-avatar")["data-user-id"]
+                sub_reply_text = sub_reply_item.find("span", class_="reply-content").text
+                sub_reply_time = sub_reply_item.find("span", class_="sub-reply-time").text
+                try:
+                    sub_reply_likes = sub_reply_item.find("span", class_="sub-reply-like").find("span").text
+                except AttributeError:
+                    sub_reply_likes = 0
 
-            # 重新获取网页源代码和二级评论列表
-            sub_soup = BeautifulSoup(driver.page_source, "html.parser")
-            sub_all_reply_items = sub_soup.find_all("div", class_="reply-item")
+                write_to_csv(video_id, index=i, level='二级评论', parent_nickname=first_level_nickname,
+                             parent_user_id=first_level_user_id,
+                             nickname=sub_reply_nickname, user_id=sub_reply_user_id, content=sub_reply_text, time=sub_reply_time,
+                             likes=sub_reply_likes)
 
-            # 提取二级评论数据
-            sub_reply_list = sub_all_reply_items[i].find("div", class_="sub-reply-list")
-            if sub_reply_list:
-                for sub_reply_item in sub_reply_list.find_all("div", class_="sub-reply-item"):
-                    sub_nickname = sub_reply_item.find("div", class_="sub-user-name").text
-                    sub_user_id = sub_reply_item.find("div", class_="sub-reply-avatar")["data-user-id"]
-                    sub_content = sub_reply_item.find("span", class_="reply-content").text
-                    sub_time = sub_reply_item.find("span", class_="sub-reply-time").text
-                    try:
-                        sub_likes = sub_reply_item.find("span", class_="sub-reply-like").find("span").text
-                    except AttributeError:
-                        sub_likes = 0
+            except NoSuchElementException:
+                print("Error extracting sub-reply element, skipping...")
 
-                    write_to_csv(video_id, index=i, level='二级评论', parent_nickname=parent_nickname,
-                                 parent_user_id=parent_user_id,
-                                 nickname=sub_nickname, user_id=sub_user_id, content=sub_content, time=sub_time,
-                                 likes=sub_likes)
-
-            # 翻到下一页二级评论
-            next_page_button = find_next_page_button()
-            if next_page_button:
-                next_page_button.click()
-                time.sleep(5)
-                progress['sub_page'] += 1
-            else:
-                break
-
-        except (NoSuchElementException, ElementClickInterceptedException):
-            driver.refresh()
-            time.sleep(5)
-            scroll_to_bottom(driver)
-            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".reply-item")))
-            click_view_more_button()
-
-    progress['sub_page'] = 1
-
+        progress['sub_page'] += 1
+        save_progress(progress)
 
 chrome_options = Options()
 # 禁用视频、音频、图片加载
@@ -202,118 +239,134 @@ chrome_options.add_argument("--disable-gpu")
 driver = webdriver.Chrome(service=Service(executable_path=ChromeDriverManager().install()), options=chrome_options)
 driver.get('https://space.bilibili.com/')
 input("请登录，登录成功跳转后，按回车键继续...")
+print("程序正在继续运行")
 
 if os.path.exists("progress.txt"):
-    with open("progress.txt", "r") as f:
+    with open("progress.txt", "r", encoding='utf-8') as f:
         progress = json.load(f)
 else:
-    progress = {"video_count": 0, "first_comment_index": 0, "sub_comment_page": 0}
+    progress = {"video_count": 0, "first_comment_index": 0, "sub_page": 0}
 
 with open('video_list.txt', 'r') as f:
     video_urls = f.read().splitlines()
 
 video_count = progress["video_count"]
+# 计算需要跳过的视频数量
+skip_count = video_count
 
 for url in video_urls:
-    video_count = video_count + 1
-    i = 0
-    video_id_search = re.search(r'https://www\.bilibili\.com/video/([^/?]+)', url)
-    if video_id_search:
-        video_id = video_id_search.group(1)
-    else:
-        print(f"无法从 URL 中提取 video_id: {url}")
-        continue
+    try:
+        # 如果需要跳过此视频，减少跳过计数并继续循环
+        if skip_count > 0:
+            skip_count -= 1
+            continue
 
-    driver.get(url)
+        video_id_search = re.search(r'https://www\.bilibili\.com/video/([^/?]+)', url)
+        if video_id_search:
+            video_id = video_id_search.group(1)
+        else:
+            print(f"无法从 URL 中提取 video_id: {url}")
+            continue
 
-    # 在爬取评论之前滚动到页面底部
-    scroll_to_bottom(driver)
+        driver.get(url)
 
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".reply-item")))
-
-    soup = BeautifulSoup(driver.page_source, "html.parser")
-    all_reply_items = soup.find_all("div", class_="reply-item")
-
-    i = progress["first_comment_index"]
-    for i, reply_item in enumerate(all_reply_items):
-        first_level_nickname_element = reply_item.find("div", class_="user-name")
-        first_level_nickname = first_level_nickname_element.text if first_level_nickname_element is not None else ''
-
-        first_level_user_id_element = reply_item.find("div", class_="root-reply-avatar")
-        first_level_user_id = first_level_user_id_element[
-            "data-user-id"] if first_level_user_id_element is not None else ''
-
-        first_level_content_element = reply_item.find("span", class_="reply-content")
-        first_level_content = first_level_content_element.text if first_level_content_element is not None else ''
-
-        first_level_time_element = reply_item.find("span", class_="reply-time")
-        first_level_time = first_level_time_element.text if first_level_time_element is not None else ''
+        # 在爬取评论之前滚动到页面底部
+        scroll_to_bottom(driver)
 
         try:
-            first_level_likes = reply_item.find("span", class_="reply-like").find("span").text
-        except AttributeError:
-            first_level_likes = 0
+            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".reply-item")))
+        except TimeoutException:
+            print(f"视频 {video_id} 没有找到评论或等了10秒还没加载出来，跳过...")
+            continue
 
-        write_to_csv(video_id, index=i, level='一级评论', parent_nickname='up主', parent_user_id='up主',
-                     nickname=first_level_nickname, user_id=first_level_user_id, content=first_level_content,
-                     time=first_level_time, likes=first_level_likes)
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+        all_reply_items = soup.find_all("div", class_="reply-item")
 
-        view_more_buttons = driver.find_elements(By.XPATH, "//span[@class='view-more-btn']")
+        for i, reply_item in enumerate(all_reply_items):
 
-        clicked_view_more = False
-        if len(view_more_buttons) > 0:
-            WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//span[@class='view-more-btn']")))
-            driver.execute_script("arguments[0].scrollIntoView();", view_more_buttons[0])
-            driver.execute_script("window.scrollBy(0, -100);")
+            if(i < progress["first_comment_index"]):
+                continue
+
+            first_level_nickname_element = reply_item.find("div", class_="user-name")
+            first_level_nickname = first_level_nickname_element.text if first_level_nickname_element is not None else ''
+
+            first_level_user_id_element = reply_item.find("div", class_="root-reply-avatar")
+            first_level_user_id = first_level_user_id_element[
+                "data-user-id"] if first_level_user_id_element is not None else ''
+
+            first_level_content_element = reply_item.find("span", class_="reply-content")
+            first_level_content = first_level_content_element.text if first_level_content_element is not None else ''
+
+            first_level_time_element = reply_item.find("span", class_="reply-time")
+            first_level_time = first_level_time_element.text if first_level_time_element is not None else ''
+
             try:
-                view_more_buttons[0].click()
-                time.sleep(5)
-                clicked_view_more = True
-            except ElementClickInterceptedException:
-                print("查看全部 button is not clickable, skipping...")
+                first_level_likes = reply_item.find("span", class_="reply-like").find("span").text
+            except AttributeError:
+                first_level_likes = 0
 
-        extract_sub_reply(i, video_id, first_level_nickname, first_level_user_id, all_reply_items, progress)
+            if (progress["sub_page"] == 0):
+                write_to_csv(video_id, index=i, level='一级评论', parent_nickname='up主', parent_user_id='up主',
+                             nickname=first_level_nickname, user_id=first_level_user_id, content=first_level_content,
+                             time=first_level_time, likes=first_level_likes)
 
-        if clicked_view_more:
-            while True:
-                next_buttons = driver.find_elements(By.CSS_SELECTOR, ".pagination-btn")
-                found_next_button = False
+            view_more_buttons = driver.find_elements(By.XPATH, "//span[@class='view-more-btn']")
 
-                for button in next_buttons:
-                    if "下一页" in button.text:
-                        button_xpath = f"//span[contains(text(), '下一页') and @class='{button.get_attribute('class')}']"
-                        WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, button_xpath)))
-                        driver.execute_script("arguments[0].scrollIntoView();", button)
-                        driver.execute_script("window.scrollBy(0, -100);")
-                        try:
-                            button.click()
-                            time.sleep(10)
-                            extract_sub_reply(i, video_id, first_level_nickname, first_level_user_id, all_reply_items,
-                                              progress)
-                            found_next_button = True
-                            break
-                        except ElementClickInterceptedException:
-                            print("下一页按钮 is not clickable, skipping...")
+            clicked_view_more = False
+            if len(view_more_buttons) > 0:
+                WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//span[@class='view-more-btn']")))
+                driver.execute_script("arguments[0].scrollIntoView();", view_more_buttons[0])
+                driver.execute_script("window.scrollBy(0, -100);")
+                try:
+                    click_view_more(driver, view_more_buttons[0])
+                    time.sleep(5)
+                    clicked_view_more = True
+                except ElementClickInterceptedException:
+                    print("查看全部 button is not clickable, skipping...")
 
-                if not found_next_button:
-                    break
+            navigate_to_sub_comment_page(progress["sub_page"])
+            extract_sub_reply(video_id, progress, first_level_nickname, first_level_user_id)
 
-        print(f'第{video_count}个视频{video_id}-第{i+1}个一级评论已完成爬取')
-        i = i + 1
+            if clicked_view_more:
+                while True:
+                    next_buttons = driver.find_elements(By.CSS_SELECTOR, ".pagination-btn")
+                    found_next_button = False
 
-        progress["first_comment_index"] = i + 1
-        progress["sub_comment_page"] = 0
+                    for button in next_buttons:
+                        if "下一页" in button.text:
+                            button_xpath = f"//span[contains(text(), '下一页') and @class='{button.get_attribute('class')}']"
+                            WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, button_xpath)))
+                            driver.execute_script("arguments[0].scrollIntoView();", button)
+                            driver.execute_script("window.scrollBy(0, -100);")
+                            try:
+                                click_next_page(driver, button)
+                                time.sleep(10)
+                                extract_sub_reply(video_id, progress, first_level_nickname, first_level_user_id)
+                                found_next_button = True
+                                break
+                            except ElementClickInterceptedException:
+                                print("下一页按钮 is not clickable, skipping...")
 
-        with open("progress.txt", "w") as f:
-            json.dump(progress, f)
+                    if not found_next_button:
+                        break
 
-    video_count += 1
-    progress["video_count"] = video_count
-    progress["first_comment_index"] = 0
+            print(f'第{video_count+1}个视频{video_id}-第{progress["first_comment_index"]+1}个一级评论已完成爬取')
 
-    with open("progress.txt", "w") as f:
-        json.dump(progress, f)
+            progress["first_comment_index"] += 1
+            progress["sub_page"] = 0
 
-    time.sleep(3)
+            save_progress(progress)
+
+        video_count += 1
+        progress["video_count"] = video_count
+        progress["first_comment_index"] = 0
+
+        save_progress(progress)
+
+        time.sleep(3)
+    except WebDriverException as e:
+        print(f"WebDriverException: {e}")
+        restart_browser(progress)
+        sys.exit()  # 退出程序，因为需要从头开始运行
 
 driver.quit()
