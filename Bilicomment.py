@@ -7,19 +7,64 @@ from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import ElementClickInterceptedException
 from selenium.webdriver.chrome.service import Service
 from bs4 import BeautifulSoup
+from selenium.webdriver.chrome.options import Options  # 用来禁用GPU加速，避免浏览器崩溃
 import time
 import os
 import csv
 import re
+import sys
+
+def close_mini_player(driver):
+    try:
+        close_button = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.XPATH, '//div[@title="点击关闭迷你播放器"]'))
+        )
+        close_button.click()
+    except Exception as e:
+        print(f"未找到关闭按钮或无法关闭悬浮小窗: {e}")
+
+def restart_browser():
+    global driver
+    driver.quit()
+    driver = webdriver.Chrome(service=Service(executable_path=ChromeDriverManager().install()))
+    driver.get('https://space.bilibili.com/')
+    input("请登录，登录成功跳转后，按回车键继续...")
+
 
 def scroll_to_bottom(driver):
-    SCROLL_PAUSE_TIME = 1
-    last_height = driver.execute_script("return document.body.scrollHeight")
+    mini_flag = True
+    SCROLL_PAUSE_TIME = 5
+    try:
+        last_height = driver.execute_script("return document.body.scrollHeight")
+    except NoSuchElementException:
+        return
+    except NoSuchWindowException:
+        print("浏览器意外关闭，尝试重新启动...")
+        restart_browser()
+        sys.exit()  # 退出程序，因为需要从头开始运行
 
     while True:
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        try:
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            if (mini_flag):
+                close_mini_player(driver)
+                mini_flag = False
+        except NoSuchElementException:
+            break
+        except NoSuchWindowException:
+            print("浏览器意外关闭，尝试重新启动...")
+            restart_browser()
+            sys.exit()  # 退出程序，因为需要从头开始运行
+
         time.sleep(SCROLL_PAUSE_TIME)
-        new_height = driver.execute_script("return document.body.scrollHeight")
+        try:
+            new_height = driver.execute_script("return document.body.scrollHeight")
+        except NoSuchElementException:
+            break
+        except NoSuchWindowException:
+            print("浏览器意外关闭，尝试重新启动...")
+            restart_browser()
+            sys.exit()  # 退出程序，因为需要从头开始运行
 
         if new_height == last_height:
             break
@@ -49,7 +94,6 @@ def write_to_csv(video_id, index, level, parent_nickname, parent_user_id, nickna
             '点赞数': likes
         })
 
-
 def extract_sub_reply(i, video_id, parent_nickname, parent_user_id, sub_all_reply_items):
     if i >= len(sub_all_reply_items):
         return
@@ -75,7 +119,14 @@ def extract_sub_reply(i, video_id, parent_nickname, parent_user_id, sub_all_repl
                          nickname=sub_nickname, user_id=sub_user_id, content=sub_content, time=sub_time,
                          likes=sub_likes)
 
-driver = webdriver.Chrome(service=Service(executable_path=ChromeDriverManager().install()))
+chrome_options = Options()
+# 禁用视频、音频、图片加载
+chrome_options.add_argument("--disable-plugins-discovery")
+chrome_options.add_argument("--mute-audio")
+chrome_options.add_experimental_option("prefs", {"profile.managed_default_content_settings.images": 2})
+# 禁用GPU加速。避免浏览器崩溃
+chrome_options.add_argument("--disable-gpu")
+driver = webdriver.Chrome(service=Service(executable_path=ChromeDriverManager().install()), options=chrome_options)
 driver.get('https://space.bilibili.com/')
 input("请登录，登录成功跳转后，按回车键继续...")
 
@@ -93,7 +144,9 @@ for url in video_urls:
     else:
         print(f"无法从 URL 中提取 video_id: {url}")
         continue
+
     driver.get(url)
+
     # 在爬取评论之前滚动到页面底部
     scroll_to_bottom(driver)
 
@@ -103,10 +156,19 @@ for url in video_urls:
     all_reply_items = soup.find_all("div", class_="reply-item")
 
     for i, reply_item in enumerate(all_reply_items):
-        first_level_nickname = reply_item.find("div", class_="user-name").text
-        first_level_user_id = reply_item.find("div", class_="root-reply-avatar")["data-user-id"]
-        first_level_content = reply_item.find("span", class_="reply-content").text
-        first_level_time = reply_item.find("span", class_="reply-time").text
+        first_level_nickname_element = reply_item.find("div", class_="user-name")
+        first_level_nickname = first_level_nickname_element.text if first_level_nickname_element is not None else ''
+
+        first_level_user_id_element = reply_item.find("div", class_="root-reply-avatar")
+        first_level_user_id = first_level_user_id_element[
+            "data-user-id"] if first_level_user_id_element is not None else ''
+
+        first_level_content_element = reply_item.find("span", class_="reply-content")
+        first_level_content = first_level_content_element.text if first_level_content_element is not None else ''
+
+        first_level_time_element = reply_item.find("span", class_="reply-time")
+        first_level_time = first_level_time_element.text if first_level_time_element is not None else ''
+
         try:
             first_level_likes = reply_item.find("span", class_="reply-like").find("span").text
         except AttributeError:
@@ -122,11 +184,13 @@ for url in video_urls:
         if len(view_more_buttons) > 0:
             WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//span[@class='view-more-btn']")))
             driver.execute_script("arguments[0].scrollIntoView();", view_more_buttons[0])
-            driver.execute_script("window.scrollBy(0, -300);")
-            view_more_buttons[0].click()
-
-            time.sleep(5)
-            clicked_view_more = True
+            driver.execute_script("window.scrollBy(0, -100);")
+            try:
+                view_more_buttons[0].click()
+                time.sleep(5)
+                clicked_view_more = True
+            except ElementClickInterceptedException:
+                print("查看全部 button is not clickable, skipping...")
 
         extract_sub_reply(i, video_id, first_level_nickname, first_level_user_id, all_reply_items)
 
@@ -137,26 +201,19 @@ for url in video_urls:
 
                 for button in next_buttons:
                     if "下一页" in button.text:
+                        button_xpath = f"//span[contains(text(), '下一页') and @class='{button.get_attribute('class')}']"
+                        WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, button_xpath)))
+                        driver.execute_script("arguments[0].scrollIntoView();", button)
+                        driver.execute_script("window.scrollBy(0, -100);")
                         try:
-                            button_xpath = f"//span[contains(text(), '下一页') and @class='{button.get_attribute('class')}']"
-                            WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, button_xpath)))
-                            button_to_click = driver.find_element(By.XPATH, button_xpath)
-                            button_to_click.click()
-                            time.sleep(1)
+                            button.click()
+                            time.sleep(10)
                             extract_sub_reply(i, video_id, first_level_nickname, first_level_user_id,
                                               all_reply_items)
                             found_next_button = True
                             break
                         except ElementClickInterceptedException:
-                            driver.execute_script("arguments[0].scrollIntoView();", button)
-                            driver.execute_script("window.scrollBy(0, -300);")
-                            button.click()
-
-                            time.sleep(1)
-                            extract_sub_reply(i, video_id, first_level_nickname, first_level_user_id,
-                                              all_reply_items)
-                            found_next_button = True
-                            break
+                            print("下一页按钮 is not clickable, skipping...")
 
                 if not found_next_button:
                     break
