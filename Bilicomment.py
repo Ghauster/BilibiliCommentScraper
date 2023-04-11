@@ -21,7 +21,7 @@ def close_mini_player(driver):
         )
         close_button.click()
     except Exception as e:
-        print(f"未找到关闭按钮或无法关闭悬浮小窗: {e}")
+        print(f"【这不影响程序正常运行，可以忽略】未找到关闭按钮或无法关闭悬浮小窗，可能悬浮小窗已经被关闭: {e}")
 
 def restart_browser():
     global driver
