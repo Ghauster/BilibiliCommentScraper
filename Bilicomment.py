@@ -86,7 +86,7 @@ def click_view_more(driver, view_more_button, all_reply_items, progress):
 
                     WebDriverWait(driver, 10).until(
                         EC.element_to_be_clickable((By.XPATH, "//span[@class='view-more-btn']")))
-                    driver.execute_script("arguments[0].scrollIntoView();", view_more_buttons[0])
+                    driver.execute_script("arguments[0].scrollIntoView();", view_more_buttons[progress["first_comment_index"]])
                     driver.execute_script("window.scrollBy(0, -100);")
                     break
 
@@ -355,10 +355,10 @@ def main():
                 clicked_view_more = False
                 if len(view_more_buttons) > 0:
                     WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//span[@class='view-more-btn']")))
-                    driver.execute_script("arguments[0].scrollIntoView();", view_more_buttons[0])
+                    driver.execute_script("arguments[0].scrollIntoView();", view_more_buttons[progress["first_comment_index"]])
                     driver.execute_script("window.scrollBy(0, -100);")
                     try:
-                        click_view_more(driver, view_more_buttons[0], all_reply_items, progress)
+                        click_view_more(driver, view_more_buttons[progress["first_comment_index"]], all_reply_items, progress)
                         time.sleep(5)
                         clicked_view_more = True
                     except ElementClickInterceptedException:
