@@ -1,6 +1,5 @@
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
-from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -39,10 +38,6 @@ def save_progress(progress):
         print("进度存档时遇到权限错误，且已达到最大重试次数50次，退出程序")
         sys.exit(1)
 
-def save_progress(progress):
-    with open("progress.txt", "w", encoding='utf-8') as f:
-        json.dump(progress, f)
-
 def save_cookies(driver, cookies_file):
     with open(cookies_file, 'wb') as f:
         pickle.dump(driver.get_cookies(), f)
@@ -72,7 +67,7 @@ def check_page_status(driver):
         scroll_to_bottom(driver)
         return False
 
-def click_view_more(driver, view_more_button):
+def click_view_more(driver, view_more_button, all_reply_items, progress):
     success = False
     while not success:
         try:
@@ -97,7 +92,7 @@ def click_view_more(driver, view_more_button):
 
                 continue
 
-def click_next_page(driver, next_page_button):
+def click_next_page(driver, next_page_button, all_reply_items, progress):
     try:
         next_page_button.click()
         time.sleep(2)
@@ -107,7 +102,7 @@ def click_next_page(driver, next_page_button):
             for i, reply_item in enumerate(all_reply_items):
                 if (i < progress["first_comment_index"]):
                     continue
-                navigate_to_sub_comment_page(progress["sub_page"])
+                navigate_to_sub_comment_page(all_reply_items, progress)
                 break
 
 def close_mini_player(driver):
@@ -119,7 +114,7 @@ def close_mini_player(driver):
     except Exception as e:
         print(f"【这不影响程序正常运行，可能悬浮小窗已被关闭】（加这段只是因为自己觉得悬浮小窗播放看着碍眼）未找到关闭按钮或无法关闭悬浮小窗: {e}")
 
-def restart_browser():
+def restart_browser(driver):
     driver.quit()
     # 杀死当前脚本的 chromedriver 进程，清理内存占用
     os.kill(driver.service.process.pid, signal.SIGTERM)
@@ -132,8 +127,9 @@ def check_next_page_button():
             return True
     return False
 
-def navigate_to_sub_comment_page(target_page):
+def navigate_to_sub_comment_page(all_reply_items, progress):
     current_page = 1
+    target_page = progress["sub_page"]
     while current_page <= target_page:
         if not check_next_page_button():
             break  # 没有下一页按钮时跳出循环
@@ -145,7 +141,7 @@ def navigate_to_sub_comment_page(target_page):
                 driver.execute_script("arguments[0].scrollIntoView();", button)
                 driver.execute_script("window.scrollBy(0, -100);")
                 try:
-                    click_next_page(driver, button)
+                    click_next_page(driver, button, all_reply_items, progress)
                     time.sleep(10)
                     current_page += 1
                     break
@@ -161,7 +157,7 @@ def scroll_to_bottom(driver):
         return
     except NoSuchWindowException:
         print("浏览器意外关闭，尝试重新启动...")
-        restart_browser()
+        restart_browser(driver)
         sys.exit()  # 退出程序，因为需要从头开始运行
 
     while True:
@@ -183,14 +179,14 @@ def scroll_to_bottom(driver):
 
         except NoSuchWindowException:
             print("关闭小窗时，浏览器意外关闭，尝试重新启动...")
-            restart_browser()
+            restart_browser(driver)
 
         time.sleep(SCROLL_PAUSE_TIME)
         try:
             new_height = driver.execute_script("return document.body.scrollHeight")
         except NoSuchWindowException:
             print("页面向下滚动时，浏览器意外关闭，尝试重新启动...")
-            restart_browser()
+            restart_browser(driver)
 
         if new_height == last_height:
             break
@@ -362,13 +358,13 @@ def main():
                     driver.execute_script("arguments[0].scrollIntoView();", view_more_buttons[0])
                     driver.execute_script("window.scrollBy(0, -100);")
                     try:
-                        click_view_more(driver, view_more_buttons[0])
+                        click_view_more(driver, view_more_buttons[0], all_reply_items, progress)
                         time.sleep(5)
                         clicked_view_more = True
                     except ElementClickInterceptedException:
                         print("查看全部 button is not clickable, skipping...")
 
-                navigate_to_sub_comment_page(progress["sub_page"])
+                navigate_to_sub_comment_page(all_reply_items, progress)
                 extract_sub_reply(video_id, progress, first_level_nickname, first_level_user_id)
 
                 if clicked_view_more:
@@ -383,7 +379,7 @@ def main():
                                 driver.execute_script("arguments[0].scrollIntoView();", button)
                                 driver.execute_script("window.scrollBy(0, -100);")
                                 try:
-                                    click_next_page(driver, button)
+                                    click_next_page(driver, button, all_reply_items, progress)
                                     time.sleep(10)
                                     extract_sub_reply(video_id, progress, first_level_nickname, first_level_user_id)
                                     found_next_button = True
@@ -410,11 +406,11 @@ def main():
 
         except WebDriverException as e:
             print(f"页面崩溃，尝试重新启动浏览器: {e}")
-            restart_browser()
+            restart_browser(driver)
 
         except Exception as e:
             print(f"发生其他未知异常，尝试重新启动浏览器: {e}")
-            restart_browser()
+            restart_browser(driver)
 
     driver.quit()
     # 杀死当前脚本的 chromedriver 进程，清理内存占用
