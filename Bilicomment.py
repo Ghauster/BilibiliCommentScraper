@@ -98,7 +98,7 @@ def close_mini_player(driver):
         )
         close_button.click()
     except Exception as e:
-        print(f"【这不影响程序正常运行（只是自己觉得悬浮小窗播放看着碍眼）】未找到关闭按钮或无法关闭悬浮小窗: {e}")
+        print(f"【这不影响程序正常运行，可能悬浮小窗已被关闭】（加这段只是因为自己觉得悬浮小窗播放看着碍眼）未找到关闭按钮或无法关闭悬浮小窗: {e}")
 
 def restart_browser():
     global driver
@@ -170,8 +170,6 @@ def scroll_to_bottom(driver):
         time.sleep(SCROLL_PAUSE_TIME)
         try:
             new_height = driver.execute_script("return document.body.scrollHeight")
-        except NoSuchElementException:
-            break
         except NoSuchWindowException:
             print("页面向下滚动时，浏览器意外关闭，尝试重新启动...")
             restart_browser()
