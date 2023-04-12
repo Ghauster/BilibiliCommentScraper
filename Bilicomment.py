@@ -83,7 +83,7 @@ def click_view_more(driver, view_more_button, all_reply_items, progress):
 
                     view_more_buttons = reply_item.find_elements(By.XPATH, ".//span[@class='view-more-btn']")
 
-                    WebDriverWait(driver, 10).until(
+                    WebDriverWait(driver, 30).until(
                         EC.element_to_be_clickable((By.XPATH, ".//span[@class='view-more-btn']")))
                     driver.execute_script("arguments[0].scrollIntoView();", view_more_buttons[0])
                     driver.execute_script("window.scrollBy(0, -100);")
@@ -101,12 +101,12 @@ def click_next_page(driver, next_page_button, all_reply_items, progress):
             for i, reply_item in enumerate(all_reply_items):
                 if (i < progress["first_comment_index"]):
                     continue
-                navigate_to_sub_comment_page(all_reply_items, progress)
+                navigate_to_sub_comment_page(all_reply_items, progress, driver)
                 break
 
 def close_mini_player(driver):
     try:
-        close_button = WebDriverWait(driver, 10).until(
+        close_button = WebDriverWait(driver, 30).until(
             EC.presence_of_element_located((By.XPATH, '//div[@title="点击关闭迷你播放器"]'))
         )
         close_button.click()
@@ -117,24 +117,24 @@ def restart_browser(driver):
     driver.quit()
     main()
 
-def check_next_page_button():
+def check_next_page_button(driver):
     next_buttons = driver.find_elements(By.CSS_SELECTOR, ".pagination-btn")
     for button in next_buttons:
         if "下一页" in button.text:
             return True
     return False
 
-def navigate_to_sub_comment_page(all_reply_items, progress):
+def navigate_to_sub_comment_page(all_reply_items, progress, driver):
     current_page = 1
     target_page = progress["sub_page"]
     while current_page <= target_page:
-        if not check_next_page_button():
+        if not check_next_page_button(driver):
             break  # 没有下一页按钮时跳出循环
         next_buttons = driver.find_elements(By.CSS_SELECTOR, ".pagination-btn")
         for button in next_buttons:
             if "下一页" in button.text:
                 button_xpath = f"//span[contains(text(), '下一页') and @class='{button.get_attribute('class')}']"
-                WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, button_xpath)))
+                WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, button_xpath)))
                 driver.execute_script("arguments[0].scrollIntoView();", button)
                 driver.execute_script("window.scrollBy(0, -100);")
                 try:
@@ -226,7 +226,7 @@ def write_to_csv(video_id, index, level, parent_nickname, parent_user_id, nickna
         print("将爬取到的数据写入csv时遇到权限错误，且已达到最大重试次数50次，退出程序")
         sys.exit(1)
 
-def extract_sub_reply(video_id, progress, first_level_nickname, first_level_user_id):
+def extract_sub_reply(video_id, progress, first_level_nickname, first_level_user_id, driver):
 
     i = progress["first_comment_index"]
 
@@ -271,7 +271,6 @@ def main():
     chrome_options.add_experimental_option("prefs", {"profile.managed_default_content_settings.images": 2})
     # 禁用GPU加速，避免浏览器崩溃
     chrome_options.add_argument("--disable-gpu")
-    global driver
     driver = webdriver.Chrome(service=Service(executable_path=ChromeDriverManager().install()), options=chrome_options)
     driver.get('https://space.bilibili.com/')
 
@@ -311,7 +310,7 @@ def main():
             scroll_to_bottom(driver)
 
             try:
-                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".reply-item")))
+                WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".reply-item")))
             except TimeoutException:
                 print(f"视频 {video_id} 没有找到评论或等了10秒还没加载出来，跳过...")
                 continue
@@ -352,7 +351,7 @@ def main():
 
                 clicked_view_more = False
                 if len(view_more_buttons) > 0:
-                    WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//span[@class='view-more-btn']")))
+                    WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//span[@class='view-more-btn']")))
                     driver.execute_script("arguments[0].scrollIntoView();", view_more_buttons[0])
                     driver.execute_script("window.scrollBy(0, -100);")
                     try:
@@ -362,8 +361,8 @@ def main():
                     except ElementClickInterceptedException:
                         print("查看全部 button is not clickable, skipping...")
 
-                navigate_to_sub_comment_page(all_reply_items, progress)
-                extract_sub_reply(video_id, progress, first_level_nickname, first_level_user_id)
+                navigate_to_sub_comment_page(all_reply_items, progress, driver)
+                extract_sub_reply(video_id, progress, first_level_nickname, first_level_user_id, driver)
 
                 if clicked_view_more:
                     while True:
@@ -373,13 +372,13 @@ def main():
                         for button in next_buttons:
                             if "下一页" in button.text:
                                 button_xpath = f"//span[contains(text(), '下一页') and @class='{button.get_attribute('class')}']"
-                                WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, button_xpath)))
+                                WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, button_xpath)))
                                 driver.execute_script("arguments[0].scrollIntoView();", button)
                                 driver.execute_script("window.scrollBy(0, -100);")
                                 try:
                                     click_next_page(driver, button, all_reply_items, progress)
                                     time.sleep(10)
-                                    extract_sub_reply(video_id, progress, first_level_nickname, first_level_user_id)
+                                    extract_sub_reply(video_id, progress, first_level_nickname, first_level_user_id, driver)
                                     found_next_button = True
                                     break
                                 except ElementClickInterceptedException:
@@ -408,7 +407,7 @@ def main():
             restart_browser(driver)
 
         except Exception as e:
-            print(f"发生其他未知异常，尝试重新启动浏览器: {e}")
+            print(f"发生其他未知异常，可能由于网络卡顿或不稳定，尝试重新启动浏览器: {e}")
             restart_browser(driver)
 
     driver.quit()
