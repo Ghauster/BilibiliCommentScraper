@@ -302,7 +302,7 @@ def main():
             video_id_search = re.search(r'https://www\.bilibili\.com/video/([^/?]+)', url)
             if video_id_search:
                 video_id = video_id_search.group(1)
-                print(f'开始爬取第{progress["video_count"]+1}个视频{video_id}')
+                print(f'开始爬取第{progress["video_count"]+1}个视频{video_id}，先会不断向下滚动至页面最底部，以加载全部页面')
             else:
                 print(f"无法从 URL 中提取 video_id: {url}")
                 continue
@@ -382,7 +382,7 @@ def main():
                                     click_next_page(driver, button, all_reply_items, progress)
                                     time.sleep(10)
                                     extract_sub_reply(video_id, progress, first_level_nickname, first_level_user_id, driver)
-                                    print(f'第{progress["sub_page"]}页二级评论已完成爬取')
+                                    print(f'发现多页二级评论，正在翻页：第{progress["sub_page"]}页二级评论已完成爬取')
                                     found_next_button = True
                                     break
                                 except ElementClickInterceptedException:
