@@ -18,8 +18,8 @@
 * 如果想要修改待爬取的视频列表，可以直接修改progress.txt文件。    
 （例如，有一个视频爬取失败，想要跳过它，直接在progress中，把video_count加1即可）        
 * progress含义：第{video_count}个视频已完成爬取。第{video_count + 1}个视频中，第{first_comment_index}个一级评论的，二级评论第{sub_page}页已完成爬取。    
-示例如右：`{"video_count": 1, "first_comment_index": 15, "sub_page": 114}`   
-
+示例如右：`{"video_count": 1, "first_comment_index": 15, "sub_page": 114}`      
+注意：这三个值全部是从0开始的。
 ## 安装
 1. 安装 Python 3。
 2. 安装所需的库。在命令行中输入以下命令：pip install selenium beautifulsoup4 webdriver-manager
