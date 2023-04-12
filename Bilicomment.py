@@ -146,7 +146,8 @@ def navigate_to_sub_comment_page(all_reply_items, progress, driver):
                     print("下一页按钮 is not clickable, skipping...")
 
 def scroll_to_bottom(driver):
-    mini_flag = True
+
+    global mini_flag
     SCROLL_PAUSE_TIME = 8
     try:
         last_height = driver.execute_script("return document.body.scrollHeight")
@@ -155,7 +156,6 @@ def scroll_to_bottom(driver):
     except NoSuchWindowException:
         print("浏览器意外关闭，尝试重新启动...")
         restart_browser(driver)
-        sys.exit()  # 退出程序，因为需要从头开始运行
 
     while True:
         # 检查页面状态
@@ -169,8 +169,8 @@ def scroll_to_bottom(driver):
             time.sleep(SCROLL_PAUSE_TIME)
 
         try:
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            if (mini_flag):
+            driver.execute_script("window.scrollTo(0, document.documentElement.scrollHeight);")
+            if mini_flag:
                 close_mini_player(driver)
                 mini_flag = False
 
@@ -180,7 +180,7 @@ def scroll_to_bottom(driver):
 
         time.sleep(SCROLL_PAUSE_TIME)
         try:
-            new_height = driver.execute_script("return document.body.scrollHeight")
+            new_height = driver.execute_script("return document.documentElement.scrollHeight")
         except NoSuchWindowException:
             print("页面向下滚动时，浏览器意外关闭，尝试重新启动...")
             restart_browser(driver)
@@ -189,6 +189,7 @@ def scroll_to_bottom(driver):
             break
 
         last_height = new_height
+
 
 def write_to_csv(video_id, index, level, parent_nickname, parent_user_id, nickname, user_id, content, time, likes):
     file_exists = os.path.isfile(f'{video_id}.csv')
@@ -286,9 +287,10 @@ def main():
     with open('video_list.txt', 'r') as f:
         video_urls = f.read().splitlines()
 
-    video_count = progress["video_count"]
     # 计算需要跳过的视频数量
-    skip_count = video_count
+    skip_count = progress["video_count"]
+    global mini_flag
+    mini_flag = True
 
     for url in video_urls:
         try:
@@ -300,6 +302,7 @@ def main():
             video_id_search = re.search(r'https://www\.bilibili\.com/video/([^/?]+)', url)
             if video_id_search:
                 video_id = video_id_search.group(1)
+                print(f'开始爬取第{progress["video_count"]+1}个视频{video_id}')
             else:
                 print(f"无法从 URL 中提取 video_id: {url}")
                 continue
@@ -389,7 +392,7 @@ def main():
                         if not found_next_button:
                             break
 
-                print(f'第{video_count+1}个视频{video_id}-第{progress["first_comment_index"]+1}个一级评论已完成爬取')
+                print(f'第{progress["video_count"]+1}个视频{video_id}-第{progress["first_comment_index"]+1}个一级评论已完成爬取')
 
                 progress["first_comment_index"] += 1
                 progress["write_parent"] = 0
@@ -397,8 +400,7 @@ def main():
 
                 save_progress(progress)
 
-            video_count += 1
-            progress["video_count"] = video_count
+            progress["video_count"] += 1
             progress["first_comment_index"] = 0
 
             save_progress(progress)
