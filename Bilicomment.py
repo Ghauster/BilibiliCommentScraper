@@ -147,7 +147,7 @@ def navigate_to_sub_comment_page(all_reply_items, progress, driver):
 
 def scroll_to_bottom(driver):
     mini_flag = True
-    SCROLL_PAUSE_TIME = 5
+    SCROLL_PAUSE_TIME = 8
     try:
         last_height = driver.execute_script("return document.body.scrollHeight")
     except NoSuchElementException:
@@ -405,7 +405,7 @@ def main():
             time.sleep(3)
 
         except WebDriverException as e:
-            print(f"页面崩溃，尝试重新启动浏览器: {e}")
+            print(f"尝试重新启动浏览器: {e}")
             restart_browser(driver)
 
         except Exception as e:
