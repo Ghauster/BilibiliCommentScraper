@@ -347,7 +347,7 @@ def main():
                                  time=first_level_time, likes=first_level_likes)
                     progress["write_parent"] = 1
 
-                view_more_buttons = reply_item.find_elements(By.XPATH, ".//span[@class='view-more-btn']")
+                view_more_buttons = driver.find_elements(By.XPATH, f".//div[@class='reply-item'][{i+1}]//span[@class='view-more-btn']")
 
                 clicked_view_more = False
                 if len(view_more_buttons) > 0:
@@ -406,10 +406,6 @@ def main():
 
         except WebDriverException as e:
             print(f"尝试重新启动浏览器: {e}")
-            restart_browser(driver)
-
-        except Exception as e:
-            print(f"发生其他未知异常，可能由于网络卡顿或不稳定，尝试重新启动浏览器: {e}")
             restart_browser(driver)
 
     driver.quit()
