@@ -363,6 +363,7 @@ def main():
 
                 navigate_to_sub_comment_page(all_reply_items, progress, driver)
                 extract_sub_reply(video_id, progress, first_level_nickname, first_level_user_id, driver)
+                print(f'第{progress["sub_page"]}页二级评论已完成爬取')
 
                 if clicked_view_more:
                     while True:
@@ -379,6 +380,7 @@ def main():
                                     click_next_page(driver, button, all_reply_items, progress)
                                     time.sleep(10)
                                     extract_sub_reply(video_id, progress, first_level_nickname, first_level_user_id, driver)
+                                    print(f'第{progress["sub_page"]}页二级评论已完成爬取')
                                     found_next_button = True
                                     break
                                 except ElementClickInterceptedException:
