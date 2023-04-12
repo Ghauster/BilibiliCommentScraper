@@ -98,12 +98,12 @@ def close_mini_player(driver):
         )
         close_button.click()
     except Exception as e:
-        print(f"未找到关闭按钮或无法关闭悬浮小窗: {e}")
+        print(f"【这不影响程序正常运行（只是自己觉得悬浮小窗播放看着碍眼）】未找到关闭按钮或无法关闭悬浮小窗: {e}")
 
 def restart_browser():
     global driver
     driver.quit()
-    # 杀死当前脚本的 chromedriver 进程
+    # 杀死当前脚本的 chromedriver 进程，清理内存占用
     os.kill(driver.service.process.pid, signal.SIGTERM)
     main()
 
@@ -147,15 +147,13 @@ def scroll_to_bottom(driver):
         sys.exit()  # 退出程序，因为需要从头开始运行
 
     while True:
-        # 检查页面是否崩溃，尝试获取页面标题，如果发生异常，则认为页面崩溃
+        # 检查页面是否崩溃
         try:
             driver.execute_script('javascript:void(0);')
         except Exception as e:
             print(f"页面崩溃，尝试重新加载: {e}")
             driver.refresh()
             time.sleep(5)
-            # 恢复滚动位置
-            # driver.execute_script(f"window.scrollTo(0, {last_height});")
             scroll_to_bottom(driver)
             time.sleep(SCROLL_PAUSE_TIME)
 
@@ -214,7 +212,7 @@ def extract_sub_reply(video_id, progress, first_level_nickname, first_level_user
     sub_all_reply_items = sub_soup.find_all("div", class_="reply-item")
 
     if i >= len(sub_all_reply_items):
-        print(str(f'翻页爬取二级评论时获得的一级评论数与实际一级评论数不符，视频{video_id}异常'))
+        print(str(f'翻页爬取二级评论时获得的一级评论数与实际一级评论数不符，视频{video_id}可能存在异常'))
         return
 
     # 提取二级评论数据
@@ -389,7 +387,7 @@ def main():
             restart_browser()
 
     driver.quit()
-    # 杀死当前脚本的 chromedriver 进程
+    # 杀死当前脚本的 chromedriver 进程，清理内存占用
     os.kill(driver.service.process.pid, signal.SIGTERM)
 
 if __name__ == "__main__":
