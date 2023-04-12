@@ -14,7 +14,6 @@ from bs4 import BeautifulSoup
 import pickle
 import time
 import os
-import signal
 import csv
 import re
 import json
@@ -83,7 +82,7 @@ def click_view_more(driver, view_more_button, all_reply_items, progress):
                         continue
 
                     view_more_buttons = reply_item.find_elements(By.XPATH, ".//span[@class='view-more-btn']")
-                    
+
                     WebDriverWait(driver, 10).until(
                         EC.element_to_be_clickable((By.XPATH, ".//span[@class='view-more-btn']")))
                     driver.execute_script("arguments[0].scrollIntoView();", view_more_buttons[0])
@@ -116,8 +115,6 @@ def close_mini_player(driver):
 
 def restart_browser(driver):
     driver.quit()
-    # 杀死当前脚本的 chromedriver 进程，清理内存占用
-    os.kill(driver.service.process.pid, signal.SIGTERM)
     main()
 
 def check_next_page_button():
@@ -415,8 +412,6 @@ def main():
             restart_browser(driver)
 
     driver.quit()
-    # 杀死当前脚本的 chromedriver 进程，清理内存占用
-    os.kill(driver.service.process.pid, signal.SIGTERM)
 
 if __name__ == "__main__":
     main()
