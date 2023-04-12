@@ -22,7 +22,7 @@ import json
 import sys
 
 def save_progress(progress):
-    max_retries = 30
+    max_retries = 50
     retries = 0
 
     while retries < max_retries:
@@ -32,11 +32,11 @@ def save_progress(progress):
             break  # 如果成功保存，跳出循环
         except PermissionError as e:
             retries += 1
-            print(f"遇到权限错误Permission denied，文件可能被占用或无写入权限: {e}")
-            print(f"等待一段时间后重试... (尝试 {retries}/{max_retries})")
+            print(f"进度存档时，遇到权限错误Permission denied，文件可能被占用或无写入权限: {e}")
+            print(f"等待10s后重试，将会重试50次... (尝试 {retries}/{max_retries})")
             time.sleep(10)  # 等待10秒后重试
     else:
-        print("已达到最大重试次数，退出程序")
+        print("进度存档时遇到权限错误，且已达到最大重试次数50次，退出程序")
         sys.exit(1)
 
 def save_progress(progress):
@@ -200,26 +200,39 @@ def scroll_to_bottom(driver):
 
 def write_to_csv(video_id, index, level, parent_nickname, parent_user_id, nickname, user_id, content, time, likes):
     file_exists = os.path.isfile(f'{video_id}.csv')
+    max_retries = 50
+    retries = 0
 
-    with open(f'{video_id}.csv', mode='a', encoding='utf-8', newline='') as csvfile:
-        fieldnames = ['编号', '隶属关系', '被评论者昵称', '被评论者ID', '昵称', '用户ID', '评论内容', '发布时间',
-                      '点赞数']
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+    while retries < max_retries:
+        try:
+            with open(f'{video_id}.csv', mode='a', encoding='utf-8', newline='') as csvfile:
+                fieldnames = ['编号', '隶属关系', '被评论者昵称', '被评论者ID', '昵称', '用户ID', '评论内容', '发布时间',
+                              '点赞数']
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
-        if not file_exists:
-            writer.writeheader()
+                if not file_exists:
+                    writer.writeheader()
 
-        writer.writerow({
-            '编号': index,
-            '隶属关系': level,
-            '被评论者昵称': parent_nickname,
-            '被评论者ID': parent_user_id,
-            '昵称': nickname,
-            '用户ID': user_id,
-            '评论内容': content,
-            '发布时间': time,
-            '点赞数': likes
-        })
+                writer.writerow({
+                    '编号': index,
+                    '隶属关系': level,
+                    '被评论者昵称': parent_nickname,
+                    '被评论者ID': parent_user_id,
+                    '昵称': nickname,
+                    '用户ID': user_id,
+                    '评论内容': content,
+                    '发布时间': time,
+                    '点赞数': likes
+                })
+            break  # 如果成功写入，跳出循环
+        except PermissionError as e:
+            retries += 1
+            print(f"将爬取到的数据写入csv时，遇到权限错误Permission denied，文件可能被占用或无写入权限: {e}")
+            print(f"等待10s后重试，将会重试50次... (尝试 {retries}/{max_retries})")
+            time.sleep(10)  # 等待10秒后重试
+    else:
+        print("将爬取到的数据写入csv时遇到权限错误，且已达到最大重试次数50次，退出程序")
+        sys.exit(1)
 
 def extract_sub_reply(video_id, progress, first_level_nickname, first_level_user_id):
 
