@@ -10,7 +10,7 @@ from selenium.common.exceptions import WebDriverException
 from selenium.common.exceptions import ElementClickInterceptedException
 from selenium.webdriver.chrome.service import Service
 from selenium.common.exceptions import NoSuchWindowException
-from selenium.webdriver.chrome.options import Options  # 用来禁用GPU加速，避免浏览器崩溃
+from selenium.webdriver.chrome.options import Options
 from bs4 import BeautifulSoup
 import pickle
 import time
