@@ -19,6 +19,25 @@ import signal
 import csv
 import re
 import json
+import sys
+
+def save_progress(progress):
+    max_retries = 30
+    retries = 0
+
+    while retries < max_retries:
+        try:
+            with open("progress.txt", "w", encoding='utf-8') as f:
+                json.dump(progress, f)
+            break  # 如果成功保存，跳出循环
+        except PermissionError as e:
+            retries += 1
+            print(f"遇到权限错误Permission denied，文件可能被占用或无写入权限: {e}")
+            print(f"等待一段时间后重试... (尝试 {retries}/{max_retries})")
+            time.sleep(10)  # 等待10秒后重试
+    else:
+        print("已达到最大重试次数，退出程序")
+        sys.exit(1)
 
 def save_progress(progress):
     with open("progress.txt", "w", encoding='utf-8') as f:
