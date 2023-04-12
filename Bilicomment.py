@@ -120,7 +120,6 @@ def close_mini_player(driver):
         print(f"【这不影响程序正常运行，可能悬浮小窗已被关闭】（加这段只是因为自己觉得悬浮小窗播放看着碍眼）未找到关闭按钮或无法关闭悬浮小窗: {e}")
 
 def restart_browser():
-    global driver
     driver.quit()
     # 杀死当前脚本的 chromedriver 进程，清理内存占用
     os.kill(driver.service.process.pid, signal.SIGTERM)
@@ -279,6 +278,7 @@ def main():
     chrome_options.add_experimental_option("prefs", {"profile.managed_default_content_settings.images": 2})
     # 禁用GPU加速，避免浏览器崩溃
     chrome_options.add_argument("--disable-gpu")
+    global driver
     driver = webdriver.Chrome(service=Service(executable_path=ChromeDriverManager().install()), options=chrome_options)
     driver.get('https://space.bilibili.com/')
 
