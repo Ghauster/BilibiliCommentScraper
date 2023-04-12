@@ -285,7 +285,7 @@ def main():
         with open("progress.txt", "r", encoding='utf-8') as f:
             progress = json.load(f)
     else:
-        progress = {"video_count": 0, "first_comment_index": 0, "sub_page": 0}
+        progress = {"video_count": 0, "first_comment_index": 0, "sub_page": 0, "write_parent": 0}
 
     with open('video_list.txt', 'r') as f:
         video_urls = f.read().splitlines()
@@ -345,10 +345,11 @@ def main():
                 except AttributeError:
                     first_level_likes = 0
 
-                if (progress["sub_page"] == 0):
+                if (progress["write_parent"] == 0):
                     write_to_csv(video_id, index=i, level='一级评论', parent_nickname='up主', parent_user_id='up主',
                                  nickname=first_level_nickname, user_id=first_level_user_id, content=first_level_content,
                                  time=first_level_time, likes=first_level_likes)
+                    progress["write_parent"] = 1
 
                 view_more_buttons = driver.find_elements(By.XPATH, "//span[@class='view-more-btn']")
 
@@ -393,6 +394,7 @@ def main():
                 print(f'第{video_count+1}个视频{video_id}-第{progress["first_comment_index"]+1}个一级评论已完成爬取')
 
                 progress["first_comment_index"] += 1
+                progress["write_parent"] = 0
                 progress["sub_page"] = 0
 
                 save_progress(progress)
