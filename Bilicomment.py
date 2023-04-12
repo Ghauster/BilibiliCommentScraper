@@ -47,7 +47,7 @@ def check_page_status(driver):
         driver.execute_script('javascript:void(0);')
         return True
     except Exception as e:
-        print(f"页面崩溃，尝试重新加载: {e}")
+        print(f"检测页面状态时出错，尝试重新加载: {e}")
         driver.refresh()
         time.sleep(5)
         scroll_to_bottom(driver)
@@ -147,11 +147,11 @@ def scroll_to_bottom(driver):
         sys.exit()  # 退出程序，因为需要从头开始运行
 
     while True:
-        # 检查页面是否崩溃
+        # 检查页面状态
         try:
             driver.execute_script('javascript:void(0);')
         except Exception as e:
-            print(f"页面崩溃，尝试重新加载: {e}")
+            print(f"检测页面状态时出错，尝试重新加载: {e}")
             driver.refresh()
             time.sleep(5)
             scroll_to_bottom(driver)
@@ -164,7 +164,7 @@ def scroll_to_bottom(driver):
                 mini_flag = False
 
         except NoSuchWindowException:
-            print("浏览器意外关闭，尝试重新启动...")
+            print("关闭小窗时，浏览器意外关闭，尝试重新启动...")
             restart_browser()
 
         time.sleep(SCROLL_PAUSE_TIME)
@@ -173,7 +173,7 @@ def scroll_to_bottom(driver):
         except NoSuchElementException:
             break
         except NoSuchWindowException:
-            print("浏览器意外关闭，尝试重新启动...")
+            print("页面向下滚动时，浏览器意外关闭，尝试重新启动...")
             restart_browser()
 
         if new_height == last_height:
