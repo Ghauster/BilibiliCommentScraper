@@ -406,7 +406,7 @@ def main():
             time.sleep(3)
 
         except WebDriverException as e:
-            print(f"尝试重新启动浏览器: {e}")
+            print(f"网页可能崩溃了，正在尝试重新启动浏览器: {e}")
             restart_browser(driver)
 
         except Exception as e:
