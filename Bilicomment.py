@@ -82,13 +82,14 @@ def click_view_more(driver, view_more_button, all_reply_items, progress):
                     if (i < progress["first_comment_index"]):
                         continue
 
-                    view_more_buttons = driver.find_elements(By.XPATH, "//span[@class='view-more-btn']")
+                    view_more_buttons = reply_item.find_elements(By.XPATH, ".//span[@class='view-more-btn']")
 
-                    WebDriverWait(driver, 10).until(
-                        EC.element_to_be_clickable((By.XPATH, "//span[@class='view-more-btn']")))
-                    driver.execute_script("arguments[0].scrollIntoView();", view_more_buttons[progress["first_comment_index"]])
-                    driver.execute_script("window.scrollBy(0, -100);")
-                    break
+                    if view_more_buttons:
+                        WebDriverWait(driver, 10).until(
+                            EC.element_to_be_clickable((By.XPATH, ".//span[@class='view-more-btn']")))
+                        driver.execute_script("arguments[0].scrollIntoView();", view_more_buttons[0])
+                        driver.execute_script("window.scrollBy(0, -100);")
+                        break
 
                 continue
 
@@ -351,15 +352,15 @@ def main():
                                  time=first_level_time, likes=first_level_likes)
                     progress["write_parent"] = 1
 
-                view_more_buttons = driver.find_elements(By.XPATH, "//span[@class='view-more-btn']")
+                view_more_buttons = reply_item.find_elements(By.XPATH, ".//span[@class='view-more-btn']")
 
                 clicked_view_more = False
                 if len(view_more_buttons) > 0:
                     WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//span[@class='view-more-btn']")))
-                    driver.execute_script("arguments[0].scrollIntoView();", view_more_buttons[progress["first_comment_index"]])
+                    driver.execute_script("arguments[0].scrollIntoView();", view_more_buttons[0])
                     driver.execute_script("window.scrollBy(0, -100);")
                     try:
-                        click_view_more(driver, view_more_buttons[progress["first_comment_index"]], all_reply_items, progress)
+                        click_view_more(driver, view_more_buttons[0], all_reply_items, progress)
                         time.sleep(5)
                         clicked_view_more = True
                     except ElementClickInterceptedException:
