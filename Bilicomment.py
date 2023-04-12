@@ -25,12 +25,13 @@ def save_progress(progress):
 
 def check_page_status(driver):
     try:
-        driver.title
+        driver.execute_script('javascript:void(0);')
         return True
     except Exception as e:
         print(f"页面崩溃，尝试重新加载: {e}")
         driver.refresh()
         time.sleep(5)
+        scroll_to_bottom(driver)
         return False
 
 def click_view_more(driver, view_more_button):
@@ -43,19 +44,34 @@ def click_view_more(driver, view_more_button):
         except Exception as e:
             print(f"点击查看全部按钮时发生错误: {e}")
             if not check_page_status(driver):
+                for i, reply_item in enumerate(all_reply_items):
+
+                    if (i < progress["first_comment_index"]):
+                        continue
+
+                    view_more_buttons = driver.find_elements(By.XPATH, "//span[@class='view-more-btn']")
+
+                    WebDriverWait(driver, 10).until(
+                        EC.element_to_be_clickable((By.XPATH, "//span[@class='view-more-btn']")))
+                    driver.execute_script("arguments[0].scrollIntoView();", view_more_buttons[0])
+                    driver.execute_script("window.scrollBy(0, -100);")
+                    break
+
                 continue
 
 def click_next_page(driver, next_page_button):
-    success = False
-    while not success:
-        try:
-            next_page_button.click()
-            time.sleep(2)
-            success = True
-        except Exception as e:
-            print(f"点击下一页按钮时发生错误: {e}")
-            if not check_page_status(driver):
-                continue
+    try:
+        next_page_button.click()
+        time.sleep(2)
+    except Exception as e:
+        print(f"点击下一页按钮时发生错误: {e}")
+        if not check_page_status(driver):
+            for i, reply_item in enumerate(all_reply_items):
+                if (i < progress["first_comment_index"]):
+                    continue
+                navigate_to_sub_comment_page(progress["sub_page"])
+                break
+
 
 def close_mini_player(driver):
     try:
@@ -134,13 +150,14 @@ def scroll_to_bottom(driver):
     while True:
         # 检查页面是否崩溃，尝试获取页面标题，如果发生异常，则认为页面崩溃
         try:
-            driver.title
+            driver.execute_script('javascript:void(0);')
         except Exception as e:
             print(f"页面崩溃，尝试重新加载: {e}")
             driver.refresh()
             time.sleep(5)
             # 恢复滚动位置
-            driver.execute_script(f"window.scrollTo(0, {last_height});")
+            # driver.execute_script(f"window.scrollTo(0, {last_height});")
+            scroll_to_bottom(driver)
             time.sleep(SCROLL_PAUSE_TIME)
 
         try:
@@ -148,8 +165,7 @@ def scroll_to_bottom(driver):
             if (mini_flag):
                 close_mini_player(driver)
                 mini_flag = False
-        except NoSuchElementException:
-            break
+
         except NoSuchWindowException:
             print("浏览器意外关闭，尝试重新启动...")
             restart_browser()
