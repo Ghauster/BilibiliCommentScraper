@@ -111,7 +111,7 @@ def close_mini_player(driver):
         )
         close_button.click()
     except Exception as e:
-        print(f"【这不影响程序正常运行，可能悬浮小窗已被关闭】（加这段只是因为自己觉得悬浮小窗播放看着碍眼）未找到关闭按钮或无法关闭悬浮小窗: {e}")
+        print(f"[这不影响程序正常运行，可能悬浮小窗已被关闭（加这段只是因为悬浮小窗可能遮挡按钮，把浏览器拉宽可以避免按钮被遮挡）]未找到关闭按钮或无法关闭悬浮小窗: {e}")
 
 def restart_browser(driver):
     driver.quit()
@@ -406,6 +406,10 @@ def main():
 
         except WebDriverException as e:
             print(f"尝试重新启动浏览器: {e}")
+            restart_browser(driver)
+
+        except Exception as e:
+            print(f"[若这条报错反复发生，请终止程序并检查]发生其他未知异常，尝试重新启动浏览器: {e}")
             restart_browser(driver)
 
     driver.quit()
