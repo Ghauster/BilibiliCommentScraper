@@ -15,7 +15,8 @@
 ### 关于断点续爬与progress
 * 断点续爬功能依托progress.txt记录实现：程序运行时，如果代码同级文件夹内存在progress.txt文件，它会读取其中进度；如果没有，则自动创建。
 * 如果想要从头开始爬取，只需删除 progress.txt 文件即可。
-* 如果想要修改待爬取的视频列表，可以直接修改progress.txt文件。（例如，有一个视频爬取失败，想要跳过它，直接在progress中，把video_count加1即可）        
+* 如果想要修改待爬取的视频列表，可以直接修改progress.txt文件。    
+（例如，有一个视频爬取失败，想要跳过它，直接在progress中，把video_count加1即可）        
 * 含义是指：第{video_count}个视频中，第{first_comment_index}个一级评论的，二级评论第{sub_page}页已完成爬取。    
 示例如右：`{"video_count": 1, "first_comment_index": 15, "sub_page": 114}`   
 
