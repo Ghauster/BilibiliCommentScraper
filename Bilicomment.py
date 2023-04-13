@@ -162,11 +162,15 @@ def scroll_to_bottom(driver):
         try:
             driver.execute_script('javascript:void(0);')
         except Exception as e:
-            print(f"检测页面状态时出错，尝试重新加载: {e}")
-            driver.refresh()
-            time.sleep(5)
-            scroll_to_bottom(driver)
-            time.sleep(SCROLL_PAUSE_TIME)
+            print(f"检查页面状态时，出现错误，尝试刷新网页重新加载...：{e}")
+            try:
+                driver.refresh()
+                time.sleep(5)
+                scroll_to_bottom(driver)
+
+            except Exception as e:
+                print(f"检查页面状态时，出现错误，页面刷新无效，尝试重启浏览器...：{e}")
+                restart_browser(driver)
 
         try:
             driver.execute_script("window.scrollTo(0, document.documentElement.scrollHeight);")
@@ -177,6 +181,7 @@ def scroll_to_bottom(driver):
         except NoSuchWindowException:
             print("关闭小窗时，浏览器意外关闭，尝试重新启动...")
             restart_browser(driver)
+
 
         time.sleep(SCROLL_PAUSE_TIME)
         try:
@@ -189,7 +194,6 @@ def scroll_to_bottom(driver):
             break
 
         last_height = new_height
-
 
 def write_to_csv(video_id, index, level, parent_nickname, parent_user_id, nickname, user_id, content, time, likes):
     file_exists = os.path.isfile(f'{video_id}.csv')
