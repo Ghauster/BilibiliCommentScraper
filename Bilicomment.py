@@ -60,7 +60,7 @@ def check_page_status(driver):
         driver.execute_script('javascript:void(0);')
         return True
     except Exception as e:
-        print(f"检测页面状态时出错，尝试重新加载: {e}")
+        print(f"检测页面状态时出错，尝试刷新页面重新加载: {e}")
         driver.refresh()
         time.sleep(5)
         scroll_to_bottom(driver)
@@ -162,14 +162,14 @@ def scroll_to_bottom(driver):
         try:
             driver.execute_script('javascript:void(0);')
         except Exception as e:
-            print(f"检查页面状态时，出现错误，尝试刷新网页重新加载...：{e}")
+            print(f"[若这条报错反复发生，请终止程序并检查]检查页面状态时，出现错误，尝试刷新网页重新加载...：{e}")
             try:
                 driver.refresh()
                 time.sleep(5)
                 scroll_to_bottom(driver)
 
             except Exception as e:
-                print(f"检查页面状态时，出现错误，页面刷新无效，尝试重启浏览器...：{e}")
+                print(f"[若这条报错反复发生，请终止程序并检查]检查页面状态时，出现错误，页面刷新无效，尝试重启浏览器...：{e}")
                 restart_browser(driver)
 
         try:
