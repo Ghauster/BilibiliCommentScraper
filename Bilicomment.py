@@ -348,6 +348,8 @@ def main():
                                  nickname=first_level_nickname, user_id=first_level_user_id, content=first_level_content,
                                  time=first_level_time, likes=first_level_likes)
                     progress["write_parent"] = 1
+                    print(
+                        f'第{progress["video_count"] + 1}个视频{video_id}-第{progress["first_comment_index"] + 1}个一级评论已写入csv。正在查看这个一级评论有没有二级评论')
 
                 view_more_buttons = driver.find_elements(By.XPATH, f".//div[@class='reply-item'][{i+1}]//span[@class='view-more-btn']")
 
@@ -390,7 +392,7 @@ def main():
                         if not found_next_button:
                             break
 
-                print(f'第{progress["video_count"]+1}个视频{video_id}-第{progress["first_comment_index"]+1}个一级评论已完成爬取')
+                print(f'第{progress["video_count"]+1}个视频{video_id}-第{progress["first_comment_index"]+1}个一级评论下的全部内容已完成爬取')
 
                 progress["first_comment_index"] += 1
                 progress["write_parent"] = 0
