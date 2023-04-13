@@ -404,7 +404,7 @@ def main():
 
                 if clicked_view_more:
                     # 可以把max_sub_pages更改为您希望设置的最大二级评论页码数，如果想无限制，请保持为None。
-                    # 设定一个上限有利于减少内存占用，避免页面崩溃。
+                    # 设定一个上限有利于减少内存占用，避免页面崩溃。建议设为200。
                     max_sub_pages = None  
                     current_sub_page = 0
 
