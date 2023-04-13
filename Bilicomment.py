@@ -403,7 +403,12 @@ def main():
                 extract_sub_reply(video_id, progress, first_level_nickname, first_level_user_id, driver)
 
                 if clicked_view_more:
-                    while True:
+                    # 可以把max_sub_pages更改为您希望设置的最大二级评论页码数，如果想无限制，请保持为None。
+                    # 设定一个上限有利于减少内存占用，避免页面崩溃。
+                    max_sub_pages = None  
+                    current_sub_page = 0
+
+                    while max_sub_pages is None or current_sub_page < max_sub_pages:
                         next_buttons = driver.find_elements(By.CSS_SELECTOR, ".pagination-btn")
                         found_next_button = False
 
@@ -416,9 +421,11 @@ def main():
                                 try:
                                     click_next_page(driver, button, i, progress)
                                     time.sleep(10)
-                                    extract_sub_reply(video_id, progress, first_level_nickname, first_level_user_id, driver)
+                                    extract_sub_reply(video_id, progress, first_level_nickname, first_level_user_id,
+                                                      driver)
                                     print(f'发现多页二级评论，正在翻页：第{progress["sub_page"]}页二级评论已完成爬取')
                                     found_next_button = True
+                                    current_sub_page += 1
                                     break
                                 except ElementClickInterceptedException:
                                     print("下一页按钮 is not clickable, skipping...")
