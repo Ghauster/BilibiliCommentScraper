@@ -151,26 +151,22 @@ def scroll_to_bottom(driver):
     SCROLL_PAUSE_TIME = 8
     try:
         last_height = driver.execute_script("return document.body.scrollHeight")
-    except NoSuchElementException:
-        return
+
     except NoSuchWindowException:
-        print("浏览器意外关闭，尝试重新启动...")
-        restart_browser(driver)
+        print("浏览器意外关闭...")
+        raise
 
     while True:
         # 检查页面状态
         try:
             driver.execute_script('javascript:void(0);')
         except Exception as e:
-            print(f"[若这条报错反复发生，请终止程序并检查]检查页面状态时，出现错误，尝试刷新网页重新加载...：{e}")
-            try:
-                driver.refresh()
-                time.sleep(5)
-                scroll_to_bottom(driver)
-
-            except Exception as e:
-                print(f"[若这条报错反复发生，请终止程序并检查]检查页面状态时，出现错误，页面刷新无效，尝试重启浏览器...：{e}")
-                restart_browser(driver)
+            print(f"检测页面状态时出错，尝试重新加载: {e}")
+            driver.refresh()
+            time.sleep(5)
+            scroll_to_bottom(driver)
+            time.sleep(SCROLL_PAUSE_TIME)
+            raise
 
         try:
             driver.execute_script("window.scrollTo(0, document.documentElement.scrollHeight);")
@@ -179,16 +175,15 @@ def scroll_to_bottom(driver):
                 mini_flag = False
 
         except NoSuchWindowException:
-            print("关闭小窗时，浏览器意外关闭，尝试重新启动...")
-            restart_browser(driver)
-
+            print("关闭小窗时，浏览器意外关闭...")
+            raise
 
         time.sleep(SCROLL_PAUSE_TIME)
         try:
             new_height = driver.execute_script("return document.documentElement.scrollHeight")
         except NoSuchWindowException:
-            print("页面向下滚动时，浏览器意外关闭，尝试重新启动...")
-            restart_browser(driver)
+            print("页面向下滚动时，浏览器意外关闭...")
+            raise
 
         if new_height == last_height:
             break
