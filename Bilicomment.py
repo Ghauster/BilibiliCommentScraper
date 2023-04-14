@@ -21,6 +21,10 @@ import sys
 import tempfile
 import shutil
 
+def write_error_log(message):
+    with open("video_errorlist.txt", "a") as file:
+        file.write(message + "\n")
+
 def save_progress(progress):
     max_retries = 50
     retries = 0
@@ -337,7 +341,10 @@ def main():
                 video_id = video_id_search.group(1)
                 print(f'开始爬取第{progress["video_count"]+1}个视频{video_id}：先会不断向下滚动至页面最底部，以加载全部页面。对于超大评论量的视频，这一步会相当花时间，请耐心等待')
             else:
-                print(f"无法从 URL 中提取 video_id: {url}")
+                error_message = f'第{progress["video_count"] + 1}个视频被跳过：无法从 URL {url}中提取 video_id'
+                print(error_message)
+                write_error_log(error_message)
+                progress["video_count"] += 1
                 continue
 
             driver.get(url)
@@ -348,7 +355,10 @@ def main():
             try:
                 WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".reply-item")))
             except TimeoutException:
-                print(f"视频 {video_id} 没有找到评论或等了10秒还没加载出来，跳过...")
+                error_message = f'第{progress["video_count"] + 1}个视频被跳过：ID {video_id} URL {url}没有找到评论或等了30秒还没加载出来'
+                print(error_message)
+                write_error_log(error_message)
+                progress["video_count"] += 1
                 continue
 
             soup = BeautifulSoup(driver.page_source, "html.parser")
