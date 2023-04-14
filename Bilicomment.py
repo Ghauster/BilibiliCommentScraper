@@ -403,9 +403,10 @@ def main():
                 extract_sub_reply(video_id, progress, first_level_nickname, first_level_user_id, driver)
 
                 if clicked_view_more:
-                    # 可以把max_sub_pages更改为您希望设置的最大二级评论页码数，如果想无限制，请保持为None。
+                    # 可以把max_sub_pages更改为您希望设置的最大二级评论页码数。
+                    # 如果想无限制，请设为max_sub_pages = None。
                     # 设定一个上限有利于减少内存占用，避免页面崩溃。建议设为200。
-                    max_sub_pages = None
+                    max_sub_pages = 200
                     current_sub_page = 0
 
                     while max_sub_pages is None or current_sub_page < max_sub_pages:
@@ -420,7 +421,7 @@ def main():
                                 driver.execute_script("window.scrollBy(0, -100);")
                                 try:
                                     click_next_page(driver, button, i, progress)
-                                    time.sleep(10)
+                                    time.sleep(5)
                                     extract_sub_reply(video_id, progress, first_level_nickname, first_level_user_id,
                                                       driver)
                                     print(f'发现多页二级评论，正在翻页：二级评论已爬取到第{progress["sub_page"]}页')
@@ -446,7 +447,7 @@ def main():
             time.sleep(3)
 
         except WebDriverException as e:
-            print(f"网页可能崩溃了，正在尝试重新启动浏览器: {e}")
+            print(f"可能网页崩溃或网络连接中断，正在尝试重新启动浏览器: {e}")
             restart_browser(driver)
 
         except Exception as e:
