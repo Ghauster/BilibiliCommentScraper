@@ -75,8 +75,13 @@ def click_view_more(driver, view_more_button, i):
     success = False
     while not success:
         try:
-            view_more_button.click()
-            time.sleep(2)
+            try:
+                driver.execute_script("arguments[0].scrollIntoView();", view_more_button)
+                driver.execute_script("window.scrollBy(0, -100);")
+                view_more_button.click()
+            except Exception:
+                driver.execute_script("window.scrollBy(0, 300);")
+                view_more_button.click()
             success = True
         except Exception as e:
             print(f"点击查看全部按钮时发生错误: {e}")
@@ -95,8 +100,13 @@ def click_view_more(driver, view_more_button, i):
 
 def click_next_page(driver, next_page_button, i, progress):
     try:
-        next_page_button.click()
-        time.sleep(2)
+        try:
+            driver.execute_script("arguments[0].scrollIntoView();", next_page_button)
+            driver.execute_script("window.scrollBy(0, -100);")
+            next_page_button.click()
+        except Exception:
+            driver.execute_script("window.scrollBy(0, 300);")
+            next_page_button.click()
     except Exception as e:
         print(f"点击下一页按钮时发生错误: {e}")
         if not check_page_status(driver):
@@ -149,11 +159,9 @@ def navigate_to_sub_comment_page(i, progress, driver):
             if "下一页" in button.text:
                 button_xpath = f"//span[contains(text(), '下一页') and @class='{button.get_attribute('class')}']"
                 WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, button_xpath)))
-                driver.execute_script("arguments[0].scrollIntoView();", button)
-                driver.execute_script("window.scrollBy(0, -100);")
                 try:
                     click_next_page(driver, button, i, progress)
-                    time.sleep(10)
+                    time.sleep(3)
                     print(f'当前所在页码 / 上次二级评论页码：{current_page}/{target_page}')
                     current_page += 1
                     break
@@ -400,11 +408,9 @@ def main():
                 clicked_view_more = False
                 if len(view_more_buttons) > 0:
                     WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//span[@class='view-more-btn']")))
-                    driver.execute_script("arguments[0].scrollIntoView();", view_more_buttons[0])
-                    driver.execute_script("window.scrollBy(0, -100);")
                     try:
                         click_view_more(driver, view_more_buttons[0], i)
-                        time.sleep(5)
+                        time.sleep(2)
                         clicked_view_more = True
                     except ElementClickInterceptedException:
                         print("查看全部 button is not clickable, skipping...")
@@ -416,7 +422,7 @@ def main():
                     # 可以把max_sub_pages更改为您希望设置的最大二级评论页码数。
                     # 如果想无限制，请设为max_sub_pages = None。
                     # 设定一个上限有利于减少内存占用，避免页面崩溃。建议设为200。
-                    max_sub_pages = 200
+                    max_sub_pages = 60
                     current_sub_page = 0
 
                     while max_sub_pages is None or current_sub_page < max_sub_pages:
@@ -427,11 +433,9 @@ def main():
                             if "下一页" in button.text:
                                 button_xpath = f"//span[contains(text(), '下一页') and @class='{button.get_attribute('class')}']"
                                 WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, button_xpath)))
-                                driver.execute_script("arguments[0].scrollIntoView();", button)
-                                driver.execute_script("window.scrollBy(0, -100);")
                                 try:
                                     click_next_page(driver, button, i, progress)
-                                    time.sleep(5)
+                                    time.sleep(2)
                                     extract_sub_reply(video_id, progress, first_level_nickname, first_level_user_id,
                                                       driver)
                                     print(f'发现多页二级评论，正在翻页：二级评论已爬取到第{progress["sub_page"]}页')
@@ -454,7 +458,6 @@ def main():
             progress["video_count"] += 1
             progress["first_comment_index"] = 0
             save_progress(progress)
-            time.sleep(3)
 
         except WebDriverException as e:
             print(f"可能网页崩溃或网络连接中断，正在尝试重新启动浏览器: {e}")
