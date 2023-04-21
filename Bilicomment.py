@@ -161,7 +161,7 @@ def navigate_to_sub_comment_page(i, progress, driver):
                 WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, button_xpath)))
                 try:
                     click_next_page(driver, button, i, progress)
-                    time.sleep(3)
+                    time.sleep(2)
                     print(f'当前所在页码 / 上次二级评论页码：{current_page}/{target_page}')
                     current_page += 1
                     break
@@ -412,18 +412,19 @@ def main():
                         click_view_more(driver, view_more_buttons[0], i)
                         time.sleep(2)
                         clicked_view_more = True
+                        navigate_to_sub_comment_page(i, progress, driver)
                     except ElementClickInterceptedException:
                         print("查看全部 button is not clickable, skipping...")
 
-                navigate_to_sub_comment_page(i, progress, driver)
-                extract_sub_reply(video_id, progress, first_level_nickname, first_level_user_id, driver)
+                if reply_item.find("div", class_="sub-reply-list"):
+                    extract_sub_reply(video_id, progress, first_level_nickname, first_level_user_id, driver)
 
                 if clicked_view_more:
                     # 可以把max_sub_pages更改为您希望设置的最大二级评论页码数。
                     # 如果想无限制，请设为max_sub_pages = None。
                     # 设定一个上限有利于减少内存占用，避免页面崩溃。建议设为200。
-                    max_sub_pages = 60
-                    current_sub_page = 0
+                    max_sub_pages = 150
+                    current_sub_page = progress["sub_page"]
 
                     while max_sub_pages is None or current_sub_page < max_sub_pages:
                         next_buttons = driver.find_elements(By.CSS_SELECTOR, ".pagination-btn")
