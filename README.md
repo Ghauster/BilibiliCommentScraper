@@ -25,8 +25,8 @@
 注意："video_count""first_comment_index""sub_page"三个值全部是从0开始的,"write_parent"取值为0或1。    
 
 ## 安装
-1. 安装 Python 3。
-2. 安装所需的库。在命令行中输入以下命令：pip install selenium beautifulsoup4 webdriver-manager
+1. 安装 Python 3 和 [Chrome](https://www.google.cn/intl/zh-CN/chrome/)
+2. 安装所需的库。在命令行中输入以下命令：`pip install selenium==4.8.3 beautifulsoup4==4.11.1 webdriver-manager`
 
 ## 使用
 1. 将要爬取评论的视频 URL 列表放入名为 video_list.txt 的文件中，每行一个 URL。
